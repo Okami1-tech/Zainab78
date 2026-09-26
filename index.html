@@ -1323,22 +1323,36 @@ const secretMessage = document.getElementById("secretMessage");
 
 function tryPassword(){
 
+  /*
+    Convert whatever she types to lowercase first.
+
+    This means:
+    Habiby  = habiby
+    HABIBY  = habiby
+    hAbIbY  = habiby
+
+    So capitalization does NOT matter.
+  */
+
   const value =
     password.value.trim().toLowerCase();
 
+
   /*
-    CHANGE THESE TO WHATEVER SHE CALLS YOU.
-    Current accepted passwords:
-    "my love", "darling", "my darling", "hayati"
+    IMPORTANT:
+    These are also lowercase because
+    "value" has already been converted
+    to lowercase above.
   */
 
   const accepted = [
-    "My love",
-    "Darling",
-    "My darling",
-    "Habiby",
-    "My King"
+    "habiby",
+    "my love",
+    "darling",
+    "my darling",
+    "my king"
   ];
+
 
   if(accepted.includes(value)){
 
