@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>Memory Machine</title>
+
+<style>
+*{
+  box-sizing:border-box;
+  margin:0;
+  padding:0;
+}
+
+html,body{
+  width:100%;
+  height:100%;
+  overflow:hidden;
+}
+
+body{
+  background:#050506;
+  color:#eee;
+  font-family:Arial,Helvetica,sans-serif;
+  touch-action:manipulation;
+}
+
+#canvas{
+  position:fixed;
+  inset:0;
+  width:100%;
+  height:100%;
+}
+
+.noise{
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  opacity:.035;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.5'/%3E%3C/svg%3E");
+}
+
+#app{
+  position:fixed;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:25px;
+}
+
+.screen{
+  position:absolute;
+  width:min(560px,100%);
+  text-align:center;
+  opacity:0;
+  transform:translateY(25px) scale(.98);
+  pointer-events:none;
+  transition:
+    opacity .9s ease,
+    transform .9s cubic-bezier(.2,.8,.2,1);
+}
+
+.screen.active{
+  opacity:1;
+  transform:translateY(0) scale(1);
+  pointer-events:auto;
+}
+
+.mono{
+  font-family:monospace;
+  font-size:10px;
+  letter-spacing:4px;
+  color:#777;
+  text-transform:uppercase;
+}
+
+.title{
+  margin-top:22px;
+  font-family:Georgia,serif;
+  font-size:clamp(40px,11vw,76px);
+  font-weight:normal;
+  letter-spacing:-2px;
+}
+
+.subtitle{
+  margin:22px auto 0;
+  max-width:430px;
+  color:#8d8990;
+  line-height:1.8;
+  font-size:13px;
+}
+
+.tap{
+  margin-top:42px;
+  font-family:monospace;
+  font-size:9px;
+  letter-spacing:3px;
+  color:#b28bd0;
+  animation:pulse 2s infinite;
+}
+
+@keyframes pulse{
+  0%,100%{opacity:.35}
+  50%{opacity:1}
+}
+
+.bigText{
+  font-family:Georgia,serif;
+  font-size:clamp(27px,7vw,48px);
+  line-height:1.4;
+}
+
+.dim{
+  margin-top:25px;
+  color:#777;
+  font-size:12px;
+  line-height:1.9;
+}
+
+.orange{
+  color:#ffad78;
+}
+
+.purple{
+  color:#c998f5;
+}
+
+.green{
+  color:#98e0b2;
+}
+
+/* MEMORY TERMINAL */
+
+.terminal{
+  width:min(500px,100%);
+  margin:auto;
+  border:1px solid rgba(255,255,255,.09);
+  background:rgba(10,10,12,.78);
+  box-shadow:0 30px 100px rgba(0,0,0,.5);
+  padding:25px;
+  text-align:left;
+}
+
+.terminalTop{
+  display:flex;
+  justify-content:space-between;
+  padding-bottom:18px;
+  border-bottom:1px solid rgba(255,255,255,.07);
+  font-family:monospace;
+  font-size:9px;
+  color:#68636c;
+}
+
+.terminalBody{
+  padding-top:25px;
+  font-family:monospace;
+  font-size:12px;
+  line-height:2.1;
+  color:#a9a4aa;
+}
+
+.cursor{
+  display:inline-block;
+  width:7px;
+  height:13px;
+  background:#c998f5;
+  animation:blink 1s infinite;
+}
+
+@keyframes blink{
+  50%{opacity:0}
+}
+
+/* TIMELINE */
+
+.timeline{
+  width:min(460px,100%);
+  margin:30px auto 0;
+  text-align:left;
+}
+
+.time{
+  border-left:1px solid #342d38;
+  padding:0 0 30px 25px;
+  position:relative;
+}
+
+.time:before{
+  content:"";
+  position:absolute;
+  width:7px;
+  height:7px;
+  border-radius:50%;
+  background:#c998f5;
+  left:-4px;
+  top:4px;
+  box-shadow:0 0 15px #c998f5;
+}
+
+.timeLabel{
+  font-family:monospace;
+  font-size:9px;
+  letter-spacing:3px;
+  color:#777;
+  margin-bottom:8px;
+}
+
+.timeText{
+  font-family:Georgia,serif;
+  font-size:20px;
+  line-height:1.5;
+}
+
+/* ROOM */
+
+.room{
+  width:min(430px,100%);
+  height:260px;
+  margin:30px auto;
+  position:relative;
+  border:1px solid rgba(255,255,255,.15);
+  overflow:hidden;
+  background:
+    linear-gradient(
+      to bottom,
+      #10101b 0%,
+      #171323 65%,
+      #0b090d 65%,
+      #0b090d 100%
+    );
+  box-shadow:0 30px 80px rgba(0,0,0,.7);
+}
+
+.moon{
+  position:absolute;
+  width:55px;
+  height:55px;
+  border-radius:50%;
+  right:45px;
+  top:35px;
+  background:#f1e7cf;
+  box-shadow:0 0 35px rgba(255,240,200,.2);
+}
+
+.window{
+  position:absolute;
+  width:150px;
+  height:145px;
+  right:20px;
+  top:55px;
+  border:3px solid #27232b;
+  background:#0b0a14;
+}
+
+.window:before,
+.window:after{
+  content:"";
+  position:absolute;
+  background:#27232b;
+}
+
+.window:before{
+  width:3px;
+  height:100%;
+  left:50%;
+}
+
+.window:after{
+  width:100%;
+  height:3px;
+  top:50%;
+}
+
+.lamp{
+  position:absolute;
+  left:55px;
+  bottom:65px;
+  width:35px;
+  height:55px;
+  background:#242027;
+}
+
+.lamp:before{
+  content:"";
+  position:absolute;
+  width:50px;
+  height:27px;
+  border-radius:50% 50% 10% 10%;
+  background:#ffb978;
+  left:-8px;
+  top:-16px;
+  box-shadow:0 0 45px rgba(255,150,90,.35);
+}
+
+.person{
+  position:absolute;
+  bottom:0;
+  width:20px;
+  height:72px;
+  border-radius:10px 10px 0 0;
+  background:#08080a;
+}
+
+.person:before{
+  content:"";
+  position:absolute;
+  width:23px;
+  height:23px;
+  border-radius:50%;
+  background:#08080a;
+  top:-20px;
+  left:-1px;
+}
+
+.person.one{
+  left:170px;
+}
+
+.person.two{
+  left:205px;
+  transform:scale(.95);
+}
+
+.roomCaption{
+  font-family:monospace;
+  font-size:9px;
+  letter-spacing:2px;
+  color:#69636e;
+}
+
+/* SCRAPBOOK */
+
+.scrap{
+  width:min(500px,100%);
+  margin:auto;
+  text-align:left;
+}
+
+.scrapTitle{
+  font-family:Georgia,serif;
+  font-size:34px;
+  margin-bottom:25px;
+  text-align:center;
+}
+
+.memory{
+  border:1px solid rgba(255,255,255,.1);
+  background:rgba(255,255,255,.025);
+  padding:17px;
+  margin:9px 0;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  color:#aaa;
+  font-size:12px;
+}
+
+.memory span{
+  color:#5e5862;
+  font-family:monospace;
+  font-size:9px;
+}
+
+/* FINAL */
+
+.finalTitle{
+  font-family:Georgia,serif;
+  font-size:clamp(42px,12vw,80px);
+  font-weight:normal;
+  margin-bottom:25px;
+}
+
+.finalText{
+  font-family:Georgia,serif;
+  font-size:clamp(18px,5vw,25px);
+  line-height:1.8;
+  color:#d2ccd4;
+}
+
+.finalText strong{
+  color:#ffb27d;
+  font-weight:normal;
+}
+
+.signature{
+  margin-top:35px;
+  font-family:monospace;
+  font-size:9px;
+  letter-spacing:4px;
+  color:#a77bc2;
+}
+
+#progress{
+  position:fixed;
+  bottom:20px;
+  left:25px;
+  right:25px;
+  height:1px;
+  background:#151319;
+}
+
+#progressBar{
+  height:100%;
+  width:0;
+  background:linear-gradient(90deg,#8a2be2,#ff9e6b);
+  transition:width .8s ease;
+}
+
+#count{
+  position:fixed;
+  top:20px;
+  right:25px;
+  font-family:monospace;
+  font-size:9px;
+  color:#555;
+  letter-spacing:2px;
+}
+</style>
+</head>
+
+<body>
+
+<canvas id="canvas"></canvas>
+<div class="noise"></div>
+
+<div id="count">01 / 10</div>
+
+<div id="app">
+
+<!-- 01 -->
+<section class="screen active">
+  <div>
+    <div class="mono">MEMORY SYSTEM</div>
+
+    <div class="title">
+      Searching...
+    </div>
+
+    <div class="subtitle">
+      Looking for a memory that hasn't happened yet.
+    </div>
+
+    <div class="tap">
+      TAP TO CONTINUE
+    </div>
+  </div>
+</section>
+
+
+<!-- 02 -->
+<section class="screen">
+  <div class="terminal">
+
+    <div class="terminalTop">
+      <span>MEMORY_ENGINE</span>
+      <span>v.∞</span>
+    </div>
+
+    <div class="terminalBody">
+      &gt; scanning future memories...<br>
+      &gt; searching possible timelines...<br>
+      &gt; searching...<br>
+      &gt; searching...<br><br>
+
+      <span class="orange">
+      &gt; unusual memory detected.
+      </span>
+      <br><br>
+
+      &gt; attempting reconstruction<span class="cursor"></span>
+    </div>
+
+  </div>
+
+  <div class="tap">TAP</div>
+</section>
+
+
+<!-- 03 -->
+<section class="screen">
+  <div>
+
+    <div class="mono">MEMORY 001</div>
+
+    <div class="bigText" style="margin-top:25px;">
+      You are reading this
+      <span class="purple">right now.</span>
+    </div>
+
+    <div class="dim">
+      One day, this exact moment will already belong
+      to the past.
+    </div>
+
+  </div>
+</section>
+
+
+<!-- 04 -->
+<section class="screen">
+  <div>
+
+    <div class="mono">TIMELINE DETECTED</div>
+
+    <div class="timeline">
+
+      <div class="time">
+        <div class="timeLabel">TODAY</div>
+        <div class="timeText">
+          You opened a strange little page someone
+          made for you.
+        </div>
+      </div>
+
+      <div class="time">
+        <div class="timeLabel">SOMEDAY</div>
+        <div class="timeText">
+          You'll probably laugh at how simple it was.
+        </div>
+      </div>
+
+      <div class="time">
+        <div class="timeLabel">SOMEDAY AFTER THAT</div>
+        <div class="timeText">
+          You'll remember the girl you were
+          when you first saw it.
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+</section>
+
+
+<!-- 05 -->
+<section class="screen">
+  <div>
+
+    <div class="mono">ERROR</div>
+
+    <div class="bigText" style="margin-top:25px;">
+      Future memory
+      <span class="orange">cannot be reconstructed.</span>
+    </div>
+
+    <div class="dim">
+      Reason:
+      <br><br>
+      Too many unknown variables.
+      <br>
+      Too many decisions yet to be made.
+      <br>
+      Too many days still waiting to happen.
+    </div>
+
+  </div>
+</section>
+
+
+<!-- 06 -->
+<section class="screen">
+  <div>
+
+    <div class="mono">PARTIAL MEMORY RECOVERED</div>
+
+    <div class="room">
+
+      <div class="moon"></div>
+
+      <div class="window"></div>
+
+      <div class="lamp"></div>
+
+      <div class="person one"></div>
+      <div class="person two"></div>
+
+    </div>
+
+    <div class="roomCaption">
+      TWO PEOPLE · ONE QUIET NIGHT · UNKNOWN DATE
+    </div>
+
+  </div>
+</section>
+
+
+<!-- 07 -->
+<section class="screen">
+  <div>
+
+    <div class="bigText">
+
+      I don't know what
+      our future will look like.
+
+    </div>
+
+    <div class="dim">
+      And I don't want to pretend that I know.
+    </div>
+
+  </div>
+</section>
+
+
+<!-- 08 -->
+<section class="screen">
+  <div>
+
+    <div class="bigText">
+
+      But if Allah allows me
+      to choose one thing...
+
+    </div>
+
+    <div class="dim">
+
+      I'd choose to keep discovering
+      what comes next with you.
+
+    </div>
+
+  </div>
+</section>
+
+
+<!-- 09 -->
+<section class="screen">
+  <div>
+
+    <div class="scrap">
+
+      <div class="scrapTitle">
+        MEMORY SLOTS
+      </div>
+
+      <div class="memory">
+        A moment I never want to forget
+        <span>01</span>
+      </div>
+
+      <div class="memory">
+        Something about you that makes me laugh
+        <span>02</span>
+      </div>
+
+      <div class="memory">
+        Something I quietly admire about you
+        <span>03</span>
+      </div>
+
+      <div class="memory">
+        Something I pray Allah gives us
+        <span>04</span>
+      </div>
+
+      <div class="memory">
+        A memory we haven't made yet
+        <span>05</span>
+      </div>
+
+      <div class="dim" style="text-align:center;">
+        Some memories shouldn't be written
+        before they happen.
+      </div>
+
+    </div>
+
+  </div>
+</section>
+
+
+<!-- 10 -->
+<section class="screen">
+  <div>
+
+    <div class="mono">MEMORY SAVED</div>
+
+    <div class="finalTitle">
+      Sarauniya.
+    </div>
+
+    <div class="finalText">
+
+      I don't know how many chapters
+      Allah has written ahead of us.
+
+      <br><br>
+
+      I don't know which roads we'll take,
+      what we'll become,
+      or how many ordinary days
+      will eventually become memories.
+
+      <br><br>
+
+      But I know something.
+
+      <br><br>
+
+      <strong>
+      I'm grateful that you are part
+      of the story I'm living right now.
+      </strong>
+
+      <br><br>
+
+      And if one day we look back at these days,
+      I hope we smile at how little we knew
+      about everything that was still ahead.
+
+    </div>
+
+    <div class="signature">
+      MEMORY SAVED · NO DATE REQUIRED
+    </div>
+
+  </div>
+</section>
+
+</div>
+
+<div id="progress">
+  <div id="progressBar"></div>
+</div>
+
+
+<script>
+const canvas=document.getElementById("canvas");
+const ctx=canvas.getContext("2d");
+
+let W,H,dpr;
+
+function resize(){
+  dpr=Math.min(window.devicePixelRatio||1,2);
+
+  W=innerWidth;
+  H=innerHeight;
+
+  canvas.width=W*dpr;
+  canvas.height=H*dpr;
+
+  canvas.style.width=W+"px";
+  canvas.style.height=H+"px";
+
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+
+resize();
+addEventListener("resize",resize);
+
+
+/* QUIET FLOATING PARTICLES */
+
+const particles=[];
+
+for(let i=0;i<90;i++){
+
+  particles.push({
+    x:Math.random()*innerWidth,
+    y:Math.random()*innerHeight,
+    r:Math.random()*1.2+.2,
+    vx:(Math.random()-.5)*.12,
+    vy:(Math.random()-.5)*.12,
+    a:Math.random()*.35+.05
+  });
+
+}
+
+function draw(){
+
+  ctx.clearRect(0,0,W,H);
+
+  for(const p of particles){
+
+    p.x+=p.vx;
+    p.y+=p.vy;
+
+    if(p.x<0)p.x=W;
+    if(p.x>W)p.x=0;
+    if(p.y<0)p.y=H;
+    if(p.y>H)p.y=0;
+
+    ctx.globalAlpha=p.a;
+
+    ctx.fillStyle=
+      Math.random()>.5
+      ? "#c998f5"
+      : "#ffad78";
+
+    ctx.beginPath();
+    ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+    ctx.fill();
+
+  }
+
+  ctx.globalAlpha=1;
+
+  requestAnimationFrame(draw);
+}
+
+draw();
+
+
+/* STORY */
+
+const screens=document.querySelectorAll(".screen");
+const count=document.getElementById("count");
+const bar=document.getElementById("progressBar");
+
+let current=0;
+let locked=false;
+
+function update(){
+
+  screens.forEach((s,i)=>{
+    s.classList.toggle("active",i===current);
+  });
+
+  count.textContent=
+    String(current+1).padStart(2,"0")
+    +" / "
+    +String(screens.length).padStart(2,"0");
+
+  bar.style.width=
+    (current/(screens.length-1))*100+"%";
+}
+
+
+function next(){
+
+  if(locked)return;
+
+  if(current>=screens.length-1)return;
+
+  locked=true;
+
+  current++;
+
+  update();
+
+  setTimeout(()=>{
+    locked=false;
+  },850);
+}
+
+
+/* TAP */
+
+document.addEventListener("pointerup",function(e){
+
+  next();
+
+});
+
+
+/* KEYBOARD */
+
+document.addEventListener("keydown",function(e){
+
+  if(
+    e.key===" " ||
+    e.key==="Enter" ||
+    e.key==="ArrowRight"
+  ){
+
+    e.preventDefault();
+    next();
+
+  }
+
+});
+
+
+update();
+</script>
+
+</body>
+</html>
+
+The important part is that the final “memory” isn't pretending to predict your future. It leaves the future open and brings Allah into it naturally. And the little room scene deliberately avoids another heart animation — it's meant to feel like she's glimpsing a moment that hasn't happened yet.
+
+For an even more personal version, you can replace the five empty memory slots with real memories between you two before you send it.
